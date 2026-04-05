@@ -4,6 +4,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from model import SmallLanguageModel
 from dataset import prepare_dataloader
+from eval import evaluate_perplexity
 import time
 
 def train():
@@ -21,8 +22,15 @@ def train():
     print(f"Using device: {device}")
     
     # 1. Load Data
-    dataloader, tokenizer = prepare_dataloader(
+    train_dataloader, tokenizer = prepare_dataloader(
         split="train", 
+        batch_size=batch_size, 
+        context_length=context_length, 
+        vocab_size=vocab_size
+    )
+    
+    val_dataloader, _ = prepare_dataloader(
+        split="validation", 
         batch_size=batch_size, 
         context_length=context_length, 
         vocab_size=vocab_size
@@ -39,7 +47,7 @@ def train():
     
     # 3. Optimizer and Scheduler
     optimizer = AdamW(model.parameters(), lr=learning_rate)
-    total_steps = epochs * len(dataloader)
+    total_steps = epochs * len(train_dataloader)
     scheduler = CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-7)
     
     # 4. Training Loop
@@ -47,7 +55,7 @@ def train():
     model.train()
     
     for epoch in range(epochs):
-        for step, (x, y) in enumerate(dataloader):
+        for step, (x, y) in enumerate(train_dataloader):
             x, y = x.to(device), y.to(device)
             
             optimizer.zero_grad()
@@ -76,6 +84,10 @@ def train():
         if(epoch % 10 == 0):
             torch.save(model.state_dict(), f"slm_model_epoch_{epoch}.pt")
             print(f"Epoch {epoch} | Step {step} | Loss: {loss.item():.4f} | LR: {scheduler.get_last_lr()[0]:.2e}")    
+            
+        print(f"Evaluating Validation Perplexity for Epoch {epoch+1}...")
+        evaluate_perplexity(model, val_dataloader, device, vocab_size)
+        model.train() # Set back to train mode after eval loop
 
     # Save model
     torch.save(model.state_dict(), "slm_model.pt")

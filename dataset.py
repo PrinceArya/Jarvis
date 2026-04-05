@@ -26,14 +26,14 @@ def prepare_dataloader(split: str = "train", batch_size: int = 16, context_lengt
     Downloads WikiText-2, trains or loads the BPE tokenizer, tokenizes the requested split,
     and returns a PyTorch DataLoader.
     """
-    print(f"Loading WikiText-2 dataset ({split} split)...")
-    dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split=split)
+    print(f"Loading empathetic_dialogues dataset ({split} split)...")
+    dataset = load_dataset("empathetic_dialogues", split=split, trust_remote_code=True)
     
-    text_data = "\n".join(filter(None, dataset["text"]))
+    text_data = "\n".join([str(utt).replace("_comma_", ",") for utt in dataset["utterance"]])
     
     # Try loading existing tokenizer to avoid retraining
     tokenizer = BPETokenizer()
-    tokenizer_path = "wikitext_tokenizer"
+    tokenizer_path = "empathetic_dialogues_tokenizer"
     
     if os.path.exists(f"{tokenizer_path}_merges.json"):
         print(f"Loading cached tokenizer from {tokenizer_path}_merges.json...")
@@ -41,17 +41,22 @@ def prepare_dataloader(split: str = "train", batch_size: int = 16, context_lengt
     else:
         print(f"Training BPE tokenizer (vocab_size={vocab_size}) on training data...")
         # Always train on the train split to prevent data leakage from validation/test
-        train_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-        train_text = "\n".join(filter(None, train_dataset["text"]))
+        train_dataset = load_dataset("empathetic_dialogues", split="train", trust_remote_code=True)
+        train_text = "\n".join([str(utt).replace("_comma_", ",") for utt in train_dataset["utterance"]])
         vocab_train_text = train_text[:500000]
         tokenizer.train(vocab_train_text, vocab_size, show_progress=False)
         tokenizer.save(tokenizer_path)
         print("Tokenizer trained and saved.")
 
     print("Encoding dataset to token IDs... This may take a moment.")
-    if len(text_data) > 500000:
-        print("Truncating text data to 500K characters for faster BPE encoding...")
-        text_data = text_data[:500000]
+    if split == "validation":
+        if len(text_data) > 20000:
+            print("Truncating validation text data to 20K characters for faster BPE encoding...")
+            text_data = text_data[:20000]
+    else:
+        if len(text_data) > 500000:
+            print(f"Truncating {split} text data to 500K characters for faster BPE encoding...")
+            text_data = text_data[:500000]
         
     token_ids = tokenizer.encode(text_data)
     print(f"Encoded {len(token_ids)} tokens.")

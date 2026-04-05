@@ -93,8 +93,8 @@ def main():
     
     # Initialize tokenizer directly since it should be cached by now
     tokenizer = BPETokenizer()
-    if os.path.exists("wikitext_tokenizer_merges.json"):
-        tokenizer.load("wikitext_tokenizer")
+    if os.path.exists("empathetic_dialogues_tokenizer_merges.json"):
+        tokenizer.load("empathetic_dialogues_tokenizer")
     else:
         print("Tokenizer not found. Run train.py first to prepare data and tokenizer.")
         return
@@ -117,7 +117,7 @@ def main():
     
     # Prepare DataLoader for Validation
     val_dataloader, _ = prepare_dataloader(
-        split="test", # WikiText test set
+        split="validation", # DailyDialog validation set
         batch_size=8, 
         context_length=context_length, 
         vocab_size=vocab_size
